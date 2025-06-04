@@ -165,19 +165,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 name: nameInput.value,
                 email: emailInput.value,
                 interestLevel: interestLevelInput.value,
-                features: document.getElementById('features').value,
-                scenario: document.getElementById('geminiScenarioResult').textContent || 'Not generated'
+                features: document.getElementById('features').value
             });
 
             formMessage.classList.add('alert', 'alert-success');
             formMessage.textContent = 'Thank you for your interest! We\'ve received your response and may contact you with updates.';
             formMessage.classList.remove('d-none');
             interestForm.reset();
-            
-            // Clear Gemini scenario result
-            document.getElementById('geminiScenarioResult').classList.add('d-none');
-            document.getElementById('geminiScenarioResult').textContent = '';
-            document.getElementById('getGeminiScenarioBtn').disabled = true;
         });
     }
 
@@ -224,133 +218,5 @@ document.addEventListener('DOMContentLoaded', function() {
         currentYearElement.textContent = new Date().getFullYear();
     }
 
-    // --- Gemini API Integration ---
-    const apiKey = ''; // API key would be provided by environment
-    const geminiApiUrlText = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
-    // Gemini for form scenario generation
-    const featuresTextarea = document.getElementById('features');
-    const getGeminiScenarioBtn = document.getElementById('getGeminiScenarioBtn');
-    const geminiScenarioResultDiv = document.getElementById('geminiScenarioResult');
-    const geminiScenarioSpinner = document.getElementById('geminiScenarioSpinner');
-
-    if (featuresTextarea && getGeminiScenarioBtn) {
-        featuresTextarea.addEventListener('input', () => {
-            getGeminiScenarioBtn.disabled = featuresTextarea.value.trim() === '';
-        });
-
-        getGeminiScenarioBtn.addEventListener('click', async () => {
-            const userInterests = featuresTextarea.value.trim();
-            if (!userInterests) {
-                geminiScenarioResultDiv.textContent = 'Please describe your interests first.';
-                geminiScenarioResultDiv.classList.remove('d-none');
-                return;
-            }
-
-            geminiScenarioSpinner.classList.remove('d-none');
-            getGeminiScenarioBtn.disabled = true;
-            geminiScenarioResultDiv.classList.add('d-none');
-            geminiScenarioResultDiv.textContent = '';
-
-            const prompt = `A person is interested in the following smart home features: "${userInterests}".
-                Generate a short, imaginative, and positive daily life scenario (2-3 paragraphs, about 100-150 words)
-                describing how these features could seamlessly improve their day. Focus on the benefits and convenience.
-                Make it sound appealing and futuristic but achievable.`;
-
-            try {
-                const payload = {
-                    contents: [
-                        { role: 'user', parts: [{ text: prompt }] }
-                    ]
-                };
-                
-                const response = await fetch(geminiApiUrlText, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`API request failed with status ${response.status}`);
-                }
-                
-                const result = await response.json();
-
-                if (result.candidates && result.candidates.length > 0 &&
-                    result.candidates[0].content && result.candidates[0].content.parts &&
-                    result.candidates[0].content.parts.length > 0) {
-                    const text = result.candidates[0].content.parts[0].text;
-                    geminiScenarioResultDiv.textContent = text;
-                } else {
-                    geminiScenarioResultDiv.textContent = 'Sorry, I couldn\'t generate a scenario at this time. The response structure was unexpected.';
-                    console.error('Unexpected Gemini response structure:', result);
-                }
-            } catch (error) {
-                console.error('Error calling Gemini API:', error);
-                geminiScenarioResultDiv.textContent = `Sorry, there was an error generating your scenario: ${error.message}. Please try again later.`;
-            } finally {
-                geminiScenarioSpinner.classList.add('d-none');
-                geminiScenarioResultDiv.classList.remove('d-none');
-                getGeminiScenarioBtn.disabled = featuresTextarea.value.trim() === '';
-            }
-        });
-    }
-
-    // --- Gemini for Feature Cards ---
-    const discoverBtns = document.querySelectorAll('.discover-possibilities-btn');
-    const geminiModal = new bootstrap.Modal(document.getElementById('geminiFeatureModal'));
-    const geminiModalTitle = document.getElementById('geminiFeatureModalLabel');
-    const geminiModalContent = document.getElementById('geminiModalContent');
-    const geminiModalSpinner = document.getElementById('geminiModalSpinner');
-
-    discoverBtns.forEach(btn => {
-        btn.addEventListener('click', async function() {
-            const featureCard = this.closest('.feature-card');
-            const featureName = featureCard.dataset.featureName;
-
-            geminiModalTitle.textContent = `✨ AI Insights for ${featureName}`;
-            geminiModalContent.classList.add('d-none');
-            geminiModalSpinner.classList.remove('d-none');
-            geminiModal.show();
-
-            const prompt = `For the smart home feature "${featureName}", generate 2-3 innovative or less common potential use cases or possibilities that go beyond the obvious.
-                Present them as a short, bulleted list. Each point should be concise and inspiring.`;
-
-            try {
-                const payload = {
-                    contents: [
-                        { role: 'user', parts: [{ text: prompt }] }
-                    ]
-                };
-                
-                const response = await fetch(geminiApiUrlText, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`API request failed with status ${response.status}`);
-                }
-                
-                const result = await response.json();
-
-                if (result.candidates && result.candidates.length > 0 &&
-                    result.candidates[0].content && result.candidates[0].content.parts &&
-                    result.candidates[0].content.parts.length > 0) {
-                    const text = result.candidates[0].content.parts[0].text;
-                    geminiModalContent.innerHTML = text.replace(/\n/g, '<br>');
-                } else {
-                    geminiModalContent.textContent = 'Sorry, I couldn\'t generate possibilities at this time. Unexpected response.';
-                    console.error('Unexpected Gemini response structure for feature possibilities:', result);
-                }
-            } catch (error) {
-                console.error('Error calling Gemini API for feature possibilities:', error);
-                geminiModalContent.textContent = `Error: ${error.message}. Please try again.`;
-            } finally {
-                geminiModalSpinner.classList.add('d-none');
-                geminiModalContent.classList.remove('d-none');
-            }
-        });
-    });
 });
